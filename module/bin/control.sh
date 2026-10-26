@@ -8,6 +8,15 @@ root_enter_global "$0" "$@" || exit 2
 . "$MODDIR/bin/kernel-identity.sh"
 . "$MODDIR/bin/compatibility.sh"
 init_state
+wlan_mod() {
+    if command -v wlan_module_name >/dev/null 2>&1; then
+        wlan_module_name
+    elif [ -d /sys/module/qca_cld3_kiwi_v2 ] || [ "$(getprop ro.board.platform 2>/dev/null || true)" = "kalama" ]; then
+        echo "qca_cld3_kiwi_v2"
+    else
+        echo "qca_cld3_peach_v2"
+    fi
+}
 . "$MODDIR/bin/transfer-power.sh"
 preflight() {
     [ "$(id -u)" = 0 ] || return 2
@@ -96,6 +105,9 @@ passive_ui_baseline() {
     reply=$(framework timeout 15 service call "$SERVICE" 2 i32 1 i32 4) || return 6
     echo "$reply" | grep -q fffffff && return 6
     P=/sys/module/qca_cld3_peach_v2/parameters
+    if [ -d /sys/module/qca_cld3_kiwi_v2/parameters ] || [ "$(getprop ro.board.platform 2>/dev/null || true)" = "kalama" ]; then
+        P=/sys/module/qca_cld3_kiwi_v2/parameters
+    fi
     [ "$(cat "$P/opairshare_bridge_pending")" = 0 ] || return 7
     grep -q 'busy=0 fault=0 error=0 accepting=0 vdev=255 freq=0' "$P/opairshare_channel_state" || return 7
     grep -q 'used=0 armed=0 pending=0 active=0 fault=0' "$P/opairshare_awdl_rx_mac_filter" || return 7
@@ -103,11 +115,22 @@ passive_ui_baseline() {
 }
 start_native() {
     touch /apex/apex-info-list.xml
+    if [ -f "$MODDIR/payload/native/libmosey_daemon_ffi.so" ] && [ ! -f "$STATE/lib_mosey.so" ]; then
+        cp "$MODDIR/payload/native/libmosey_daemon_ffi.so" "$STATE/lib_mosey.so"
+        chmod 755 "$STATE/lib_mosey.so"
+    fi
+    ffi_path=""
+    if [ -f "$MODDIR/payload/native/libmosey_daemon_ffi.so" ]; then
+        ffi_path="$MODDIR/payload/native/libmosey_daemon_ffi.so"
+    fi
+    server_bin="/system_ext/bin/mosey_server"
+    [ -x "$server_bin" ] || server_bin="$MODDIR/payload/native/mosey_server"
     OPAIRSHARE_ENABLE_HOPPING=1 OPAIRSHARE_SOCIAL_CHANNELS=149 \
         OPAIRSHARE_CONFIG_TRACE="$STATE/config-trace.log" \
         OPAIRSHARE_CHANNEL_PROFILE=freq20 \
+        ${ffi_path:+OPAIRSHARE_FFI_PATH="$ffi_path"} \
         LD_PRELOAD="$MODDIR/payload/native/libopairshare_capability.so:$MODDIR/payload/native/libopairshare_config.so:$MODDIR/payload/native/libopairshare_channel.so" \
-        /system_ext/bin/mosey_server >> "$STATE/server.log" 2>&1 < /dev/null 9>&- &
+        "$server_bin" >> "$STATE/server.log" 2>&1 < /dev/null 9>&- &
     server=$!
     echo "$server" > "$STATE/server.pid"
     boot_id > "$STATE/server-boot"
@@ -125,11 +148,12 @@ stop_native() {
         echo "$result" > "$STATE/native-stop.txt"
         if echo "$result" | grep -q 'fffffff'; then echo 'Native stop reported an exception'; return 6; fi
     fi
-    if loaded qca_cld3_peach_v2 && [ -e /sys/module/qca_cld3_peach_v2/parameters/opairshare_bridge_pending ]; then
-        [ "$(cat /sys/module/qca_cld3_peach_v2/parameters/opairshare_bridge_pending)" = 0 ] || return 7
+    WLAN_MOD=$(wlan_mod)
+    if loaded "$WLAN_MOD" && [ -e "/sys/module/$WLAN_MOD/parameters/opairshare_bridge_pending" ]; then
+        [ "$(cat "/sys/module/$WLAN_MOD/parameters/opairshare_bridge_pending")" = 0 ] || return 7
     fi
     server=$(cat "$STATE/server.pid" 2>/dev/null || true)
-    if same_boot "$STATE/server-boot" && pid_is "$server" '/system_ext/bin/mosey_server'; then
+    if same_boot "$STATE/server-boot" && pid_is "$server" 'mosey_server'; then
         kill "$server"
         n=0
         while pid_live "$server" && [ "$n" -lt 10 ]; do sleep 1; n=$((n+1)); done
@@ -140,7 +164,7 @@ stop_native() {
 restore_state_allowed() {
     if loaded wonder; then [ "$(module_note wonder)" = "$NOTE_wonder" ] || return 3; fi
     if loaded opairshare_wonder_provider; then [ "$(module_note opairshare_wonder_provider)" = "$NOTE_opairshare_wonder_provider" ] || return 3; fi
-    # Original WLAN/mac80211 builds vary across supported sun devices.
+    # Original WLAN/mac80211 builds vary across supported sun/kalama devices.
     # Keep ownership checks for our provider/Wonder; let insmod validate ABI.
 }
 restore_owned() {
@@ -153,13 +177,23 @@ restore_owned() {
     wifi_wait 0 || return 4
     sleep 6
     pause_wifi_hal || return 4
+    WLAN_MOD=$(wlan_mod)
     if same_boot "$STATE/qca-swapped"; then
-        if loaded qca_cld3_peach_v2 && [ "$(module_note qca_cld3_peach_v2)" = "$NOTE_qca_cld3_peach_v2" ]; then
-            rmmod qca_cld3_peach_v2 || return 11
+        note_var="NOTE_$WLAN_MOD"
+        eval "expected_note=\${$note_var:-}"
+        if loaded "$WLAN_MOD" && [ -n "$expected_note" ] && [ "$(module_note "$WLAN_MOD")" = "$expected_note" ]; then
+            rmmod "$WLAN_MOD" || return 11
         fi
         if loaded opairshare_wonder_provider; then rmmod opairshare_wonder_provider || return 12; fi
-        if ! loaded qca_cld3_peach_v2; then insmod /vendor/lib/modules/qca_cld3_peach_v2.ko || return 13; fi
-        loaded qca_cld3_peach_v2 || return 13
+        if ! loaded "$WLAN_MOD"; then
+            stock_ko=""
+            for p in "/vendor_dlkm/lib/modules/$WLAN_MOD.ko" "/vendor/lib/modules/$WLAN_MOD.ko"; do
+                if [ -f "$p" ]; then stock_ko="$p"; break; fi
+            done
+            [ -n "$stock_ko" ] || stock_ko="/vendor/lib/modules/$WLAN_MOD.ko"
+            insmod "$stock_ko" || return 13
+        fi
+        loaded "$WLAN_MOD" || return 13
         rm -f "$STATE/qca-swapped" "$STATE/provider-added"
     elif same_boot "$STATE/provider-added"; then
         if loaded opairshare_wonder_provider; then rmmod opairshare_wonder_provider || return 12; fi
@@ -167,7 +201,14 @@ restore_owned() {
     fi
     if same_boot "$STATE/mac-swapped"; then
         if loaded mac80211 && [ "$(module_note mac80211)" = "$NOTE_mac80211" ]; then rmmod mac80211 || return 14; fi
-        if ! loaded mac80211; then insmod /vendor/lib/modules/mac80211.ko || return 15; fi
+        if ! loaded mac80211; then
+            stock_mac=""
+            for p in /vendor_dlkm/lib/modules/mac80211.ko /vendor/lib/modules/mac80211.ko; do
+                if [ -f "$p" ]; then stock_mac="$p"; break; fi
+            done
+            [ -n "$stock_mac" ] || stock_mac="/vendor/lib/modules/mac80211.ko"
+            insmod "$stock_mac" || return 15
+        fi
         loaded mac80211 || return 15
         rm -f "$STATE/mac-swapped"
     fi
@@ -179,6 +220,9 @@ restore_owned() {
 }
 rx_auto_wait() {
     P=/sys/module/qca_cld3_peach_v2/parameters
+    if [ -d /sys/module/qca_cld3_kiwi_v2/parameters ] || [ "$(getprop ro.board.platform 2>/dev/null || true)" = "kalama" ]; then
+        P=/sys/module/qca_cld3_kiwi_v2/parameters
+    fi
     n=0
     while [ "$n" -lt 20 ]; do
         rx=$(cat "$P/opairshare_awdl_rx_mac_filter")
@@ -228,7 +272,7 @@ case "${1:-status}" in
         kernel_matches || { echo 'Live kernel identity does not match the successful payload'; exit 3; }
         server=$(pidof mosey_server || true)
         case "$server" in ''|*[!0-9]*) exit 3;; esac
-        pid_is "$server" '/system_ext/bin/mosey_server' || exit 3
+        pid_is "$server" 'mosey_server' || exit 3
         wifi_before=$(wifi_state)
         case "$wifi_before" in 0|1) ;; *) echo 'Invalid Wi-Fi state'; exit 3;; esac
         printf '%s\n' "$wifi_before" > "$STATE/wifi-before"
@@ -247,7 +291,7 @@ case "${1:-status}" in
         if same_boot "$STATE/stack-boot"; then
             kernel_matches || exit 3
             server=$(cat "$STATE/server.pid" 2>/dev/null || true)
-            if ! pid_is "$server" '/system_ext/bin/mosey_server'; then start_native; fi
+            if ! pid_is "$server" 'mosey_server'; then start_native; fi
             activate_provider; ready_message; exit 0
         fi
         for m in wonder opairshare_wonder_provider opairshare_hw_probe; do
@@ -271,12 +315,22 @@ case "${1:-status}" in
         # Disable completion and HAL stop gate teardown. A fixed delay here
         # does not drain the remaining HAL-owned interfaces; stopping HAL does.
         pause_wifi_hal
-        rmmod qca_cld3_peach_v2
+        WLAN_MOD=$(wlan_mod)
+        rmmod "$WLAN_MOD" || rmmod kiwi_v2 || rmmod qca_cld3_peach_v2 || true
         boot_id > "$STATE/qca-swapped"
-        insmod "$MODDIR/payload/kernel/opairshare_wonder_provider.ko"
-        boot_id > "$STATE/provider-added"
+        if [ -f "$MODDIR/payload/kernel/opairshare_wonder_provider.ko" ]; then
+            insmod "$MODDIR/payload/kernel/opairshare_wonder_provider.ko"
+            boot_id > "$STATE/provider-added"
+        fi
         turbo_args=$(turbo_module_args)
-        insmod "$MODDIR/payload/kernel/qca_cld3_peach_v2.ko" \
+        wlan_payload="$MODDIR/payload/kernel/$WLAN_MOD.ko"
+        if [ ! -f "$wlan_payload" ]; then
+            wlan_payload="$MODDIR/payload/kernel/qca_cld3_kiwi_v2.ko"
+        fi
+        if [ ! -f "$wlan_payload" ]; then
+            wlan_payload="$MODDIR/payload/kernel/qca_cld3_peach_v2.ko"
+        fi
+        insmod "$wlan_payload" \
             passthru_awdl_addba=1 passthru_awdl_native_rx=1 passthru_ht=1 passthru_fwtype=7 passthru_mon_rings=0 passthru_dry_run=0 \
             passthru_mon_chan_sync=1 passthru_ndi_peer=1 passthru_ndi_no_up=1 \
             passthru_mgmt_bridge=1 passthru_aux_monitor=1 passthru_tx_audit=1 \
@@ -284,9 +338,11 @@ case "${1:-status}" in
             passthru_awdl_target_mac="" passthru_awdl_target_auto=1 passthru_awdl_target_enable=1 passthru_awdl_target_auth=2 \
             passthru_native_data_rx=1 passthru_awdl_backpressure=1 passthru_awdl_raw_rx=1 passthru_awdl_rate_mbps=54 \
             passthru_awdl_host_seq=1 passthru_awdl_rx_dedup=1 passthru_awdl_attempts=3 passthru_awdl_rx_auto=1 passthru_awdl_rx_rearm=1 passthru_sta_coexist=3 passthru_sta_regular_rx=1 passthru_sta_action_rx=1 passthru_pas_discovery_actions=1 $turbo_args
-        rmmod mac80211
-        boot_id > "$STATE/mac-swapped"
-        insmod "$MODDIR/payload/kernel/mac80211.ko"
+        if [ -f "$MODDIR/payload/kernel/mac80211.ko" ]; then
+            rmmod mac80211 || true
+            boot_id > "$STATE/mac-swapped"
+            insmod "$MODDIR/payload/kernel/mac80211.ko"
+        fi
         insmod "$MODDIR/payload/kernel/wonder.ko" physical_name=wondertap0 virtual_name=wonder0
         kernel_matches || exit 3
         startup_trace DRIVER_SWAP_DONE

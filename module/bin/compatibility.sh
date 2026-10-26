@@ -1,5 +1,5 @@
 #!/system/bin/sh
-# Shared install/start device gates: Oplus brand, sun platform.
+# Shared install/start device gates: Oplus/Realme brand, sun/kalama platform.
 compatibility_error() { echo "Compatibility: $*" >&2; return 2; }
 
 compatibility_device() (
@@ -8,7 +8,8 @@ compatibility_device() (
         compatibility_error 'Oplus device required (OPPO / OnePlus / realme)'; exit 2;
     }
     board=$(getprop ro.board.platform)
-    [ "$board" = sun ] || {
-        compatibility_error "sun platform required; found $board"; exit 2;
-    }
+    case "$board" in
+        sun|kalama) ;;
+        *) compatibility_error "sun platform or kalama platform required; found $board"; exit 2;;
+    esac
 )

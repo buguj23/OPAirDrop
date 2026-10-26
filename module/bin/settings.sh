@@ -10,6 +10,9 @@ MODDIR=$(CDPATH= cd -- "${0%/*}/.." && pwd)
 . "$MODDIR/bin/share-mode.sh"
 init_state
 P=/sys/module/qca_cld3_peach_v2/parameters
+if [ -d /sys/module/qca_cld3_kiwi_v2/parameters ] || [ "$(getprop ro.board.platform 2>/dev/null || true)" = "kalama" ]; then
+    P=/sys/module/qca_cld3_kiwi_v2/parameters
+fi
 fail() { echo "$*" >&2;exit 8; }
 flag() { [ -e "$STATE/$1" ] && echo on || echo off; }
 profile() {

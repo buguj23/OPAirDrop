@@ -10,6 +10,8 @@ class Recorder(unittest.TestCase):
   (b/'clock').write_text('1000');(b/'keep').write_text('1');(b/'step').write_text('0');(b/'points').write_text(json.dumps(points))
   (b/'provider').write_text('Unavailable dump' if confirmed is None else 'ExternalSharingService state:\nActive Transfers ('+('1' if confirmed else '0')+')\nReceive provider transferring: false\nOPAIRSHARE_RECEIVE busy=0')
   module=b/'module';(module/'bin').mkdir(parents=True)
+  import shutil
+  shutil.copy2(HERE.parent/'module/bin/transfer-power.sh', module/'bin')
   (module/'bin/common.sh').write_text(f'''STATE='{state}'
 COMP=provider
 init_state() {{ :; }}

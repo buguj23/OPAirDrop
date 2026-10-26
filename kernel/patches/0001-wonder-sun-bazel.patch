@@ -12,7 +12,7 @@ index b0dff872..b86411e9 100755
 +                # convention used by the other oplus module definitions.
 +                wonder_ko_deps = []
  
-+            if target in ["canoe", "sun"]:
++            if target in ["canoe", "sun", "kalama"]:
                  define_oplus_ddk_module(
                      name = "wonder",
                      srcs = native.glob([

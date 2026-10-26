@@ -6,6 +6,9 @@ MODDIR=$(CDPATH= cd -- "${0%/*}/.." && pwd)
 . "$MODDIR/bin/coex-wifi.sh"
 init_state
 P=/sys/module/qca_cld3_peach_v2/parameters
+if [ -d /sys/module/qca_cld3_kiwi_v2/parameters ] || [ "$(getprop ro.board.platform 2>/dev/null || true)" = "kalama" ]; then
+    P=/sys/module/qca_cld3_kiwi_v2/parameters
+fi
 S="$STATE/coex-session"
 knobs='passthru_sta_coexist passthru_awdl_allow_concurrent passthru_mgmt_home_channel passthru_awdl_amsdu passthru_awdl_phy passthru_awdl_mcs passthru_awdl_nss passthru_awdl_collect_us'
 idle() {

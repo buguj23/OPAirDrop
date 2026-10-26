@@ -4,7 +4,7 @@ set -eu
 MODDIR=$(CDPATH= cd -- "${0%/*}/.." && pwd)
 . "$MODDIR/bin/common.sh"
 init_state
-. "$MODDIR/bin/transfer-power.sh"
+[ ! -f "$MODDIR/bin/transfer-power.sh" ] || . "$MODDIR/bin/transfer-power.sh"
 D="$STATE/speed-history"
 mkdir -p "$D";chmod 700 "$D"
 IFACE=/sys/class/net/mosey0

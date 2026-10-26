@@ -9,8 +9,8 @@ SYSTEM_APK=/system_ext/priv-app/MoseyApp/base.apk
 die() { echo "Callback patch: $*" >&2; exit 3; }
 digest() { sha256sum "$1" | awk '{print $1}'; }
 base_digest() { awk '$2=="base.apk" {print $1}' "$1"; }
-original=$(base_digest "$MODDIR/APP-SHA256SUMS")
-patched=$(base_digest "$MODDIR/APP-CALLBACK-SHA256SUMS")
+original=$([ -f "$MODDIR/APP-SHA256SUMS" ] && base_digest "$MODDIR/APP-SHA256SUMS" || true)
+patched=$([ -f "$MODDIR/APP-CALLBACK-SHA256SUMS" ] && base_digest "$MODDIR/APP-CALLBACK-SHA256SUMS" || true)
 if [ "$(id -u)" != 0 ]; then die 'root required'; fi
 root_enter_global "$0" "$@" || die 'global mount namespace unavailable'
 init_state
@@ -24,7 +24,8 @@ active_base() {
 idle() {
     /system/bin/sh "$MODDIR/bin/transfer-idle.sh" 7>&-
     [ -z "$(pidof "$PKG" || true)" ] || die 'close Quick Share before changing the patch'
-    p=/sys/module/qca_cld3_peach_v2/parameters/opairshare_channel_state
+    WLAN_MOD=$(wlan_module_name)
+    p=/sys/module/$WLAN_MOD/parameters/opairshare_channel_state
     [ ! -r "$p" ] || grep -q 'accepting=0 vdev=255 freq=0' "$p" || die 'radio session still active'
 }
 owned() {

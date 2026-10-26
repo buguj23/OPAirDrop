@@ -22,7 +22,9 @@ else
     OPAIRSHARE_WIDTH_MODE="$mode" OPAIRSHARE_WIDTH_IFACE=wonder0 \
     OPAIRSHARE_WIDTH_LOG="/data/local/tmp/opairshare-width-$tag.txt" \
     LD_PRELOAD="$MODDIR/payload/native/libopairshare_capability.so:$MODDIR/payload/native/libopairshare_config.so:/data/local/tmp/opairshare-width-shim.so" \
-    /system_ext/bin/mosey_server >> "$STATE/server.log" 2>&1 < /dev/null 9>&- &
+    server_bin="/system_ext/bin/mosey_server"
+    [ -x "$server_bin" ] || server_bin="$MODDIR/payload/native/mosey_server"
+    "$server_bin" >> "$STATE/server.log" 2>&1 < /dev/null 9>&- &
     server=$!
     echo "$server" > "$STATE/server.pid"
     boot_id > "$STATE/server-boot"

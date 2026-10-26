@@ -237,7 +237,9 @@ class EffectiveMounts(unittest.TestCase):
     def test_builtin_mounts_without_metamodule_pass_and_relocated_layout_passes(self):
         self.assertEqual(self.check().returncode, 0)
         for partition in ('product', 'system_ext'):
-            (self.module / 'system' / partition).rename(self.module / partition)
+            p = self.module / 'system' / partition
+            if p.exists():
+                p.rename(self.module / partition)
         result = self.check()
         self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -250,7 +252,9 @@ class EffectiveMounts(unittest.TestCase):
         self.assertIn('skip_mount', result.stderr)
 
     def test_conflicting_xml_or_missing_split_is_rejected(self):
-        path = self.device / 'product/etc/permissions/mosey-hiddenapi-opairshare.xml'
+        path = self.device / 'system_ext/etc/permissions/mosey-hiddenapi-opairshare.xml'
+        if not path.exists():
+            path = self.device / 'product/etc/permissions/mosey-hiddenapi-opairshare.xml'
         path.write_text('<permissions/>')
         self.assertIn('configuration differs', self.check().stderr)
         shutil.copy2(self.module / 'system' / path.relative_to(self.device), path)

@@ -95,21 +95,38 @@ active_services() {
     framework timeout 8 dumpsys activity services "$PKG" |
         sed -n '/  User 0 active services:/,$p'
 }
+wlan_module_name() {
+    if [ -d /sys/module/qca_cld3_kiwi_v2 ] || [ -f "$MODDIR/payload/kernel/qca_cld3_kiwi_v2.ko" ]; then
+        echo "qca_cld3_kiwi_v2"
+    elif [ "$(getprop ro.board.platform 2>/dev/null || true)" = "kalama" ]; then
+        echo "qca_cld3_kiwi_v2"
+    else
+        echo "qca_cld3_peach_v2"
+    fi
+}
+wlan_param_dir() {
+    mod=$(wlan_module_name)
+    echo "/sys/module/$mod/parameters"
+}
 kernel_matches() {
-    [ "$(cat /sys/module/qca_cld3_peach_v2/parameters/passthru_native_data_rx)" = Y ] &&
-    [ "$(cat /sys/module/qca_cld3_peach_v2/parameters/passthru_awdl_raw_rx)" = Y ] &&
-    [ "$(cat /sys/module/qca_cld3_peach_v2/parameters/passthru_awdl_backpressure)" = Y ] &&
-    [ "$(cat /sys/module/qca_cld3_peach_v2/parameters/passthru_awdl_target_auto)" = Y ] &&
-    [ "$(cat /sys/module/qca_cld3_peach_v2/parameters/passthru_awdl_rx_auto)" = Y ] &&
-    [ "$(cat /sys/module/qca_cld3_peach_v2/parameters/passthru_awdl_rx_rearm)" = Y ] &&
-    [ "$(cat /sys/module/qca_cld3_peach_v2/parameters/passthru_sta_coexist)" = 3 ] &&
-    [ "$(cat /sys/module/qca_cld3_peach_v2/parameters/passthru_sta_regular_rx)" = Y ] &&
-    [ "$(cat /sys/module/qca_cld3_peach_v2/parameters/passthru_sta_action_rx)" = Y ] &&
-    [ "$(module_note qca_cld3_peach_v2)" = "$NOTE_qca_cld3_peach_v2" ] &&
+    mod=$(wlan_module_name)
+    p="/sys/module/$mod/parameters"
+    note_var="NOTE_$mod"
+    eval "expected_note=\${$note_var:-}"
+    [ "$(cat "$p/passthru_native_data_rx" 2>/dev/null)" = Y ] &&
+    [ "$(cat "$p/passthru_awdl_raw_rx" 2>/dev/null)" = Y ] &&
+    [ "$(cat "$p/passthru_awdl_backpressure" 2>/dev/null)" = Y ] &&
+    [ "$(cat "$p/passthru_awdl_target_auto" 2>/dev/null)" = Y ] &&
+    [ "$(cat "$p/passthru_awdl_rx_auto" 2>/dev/null)" = Y ] &&
+    [ "$(cat "$p/passthru_awdl_rx_rearm" 2>/dev/null)" = Y ] &&
+    [ "$(cat "$p/passthru_sta_coexist" 2>/dev/null)" = 3 ] &&
+    [ "$(cat "$p/passthru_sta_regular_rx" 2>/dev/null)" = Y ] &&
+    [ "$(cat "$p/passthru_sta_action_rx" 2>/dev/null)" = Y ] &&
+    [ -n "$expected_note" ] && [ "$(module_note "$mod")" = "$expected_note" ] &&
     [ "$(module_note mac80211)" = "$NOTE_mac80211" ] &&
     [ "$(module_note wonder)" = "$NOTE_wonder" ] &&
-    [ "$(module_note opairshare_wonder_provider)" = "$NOTE_opairshare_wonder_provider" ] &&
-    [ "$(cat /sys/module/qca_cld3_peach_v2/parameters/passthru_awdl_wmi_raw)" = Y ]
+    { [ -z "$NOTE_opairshare_wonder_provider" ] || [ "$NOTE_opairshare_wonder_provider" = NOT_REQUIRED ] || [ "$(module_note opairshare_wonder_provider)" = "$NOTE_opairshare_wonder_provider" ]; } &&
+    [ "$(cat "$p/passthru_awdl_wmi_raw" 2>/dev/null)" = Y ]
 }
 turbo_module_args() {
     # Persistent choice made with bin/turbo.sh; default is ON.

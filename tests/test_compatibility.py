@@ -117,6 +117,11 @@ module_note() {{ cat '{self.live}/'$1 2>/dev/null; }}
                 result = self.check()
                 self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_kalama_platform_passes(self):
+        self.prop('ro.board.platform', 'kalama')
+        result = self.check()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_platform_mismatches_reject_before_mutation(self):
         cases = [('ro.board.platform', 'other', 'sun platform'),
                  ('ro.board.platform', '', 'sun platform')]

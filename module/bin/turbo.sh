@@ -4,6 +4,9 @@ MODDIR=$(CDPATH= cd -- "${0%/*}/.." && pwd)
 . "$MODDIR/bin/common.sh"
 init_state
 P=/sys/module/qca_cld3_peach_v2/parameters
+if [ -d /sys/module/qca_cld3_kiwi_v2/parameters ] || [ "$(getprop ro.board.platform 2>/dev/null || true)" = "kalama" ]; then
+    P=/sys/module/qca_cld3_kiwi_v2/parameters
+fi
 set_p() { printf '%s' "$2" > "$P/$1"; }
 apply_live() {
     [ -f "$P/opairshare_agg_stats" ] || return 0

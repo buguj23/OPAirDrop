@@ -71,6 +71,9 @@ close_session() {
     printf '%s\n' "$reply" > "$STATE/ui-native-stop.txt"
     echo "$reply" | grep -q fffffff && return 6
     P=/sys/module/qca_cld3_peach_v2/parameters
+    if [ -d /sys/module/qca_cld3_kiwi_v2/parameters ] || [ "$(getprop ro.board.platform 2>/dev/null || true)" = "kalama" ]; then
+        P=/sys/module/qca_cld3_kiwi_v2/parameters
+    fi
     [ "$(cat "$P/opairshare_bridge_pending")" = 0 ] || return 7
     grep -q 'busy=0 fault=0 error=0 accepting=0 vdev=255 freq=0' "$P/opairshare_channel_state" || return 7
     grep -q 'used=0 armed=0 pending=0 active=0 fault=0' "$P/opairshare_awdl_rx_mac_filter" || return 7
@@ -129,7 +132,7 @@ while same_boot "$STATE/stack-boot" && [ ! -e "$STATE/disabled" ] &&
       [ ! -e "$MODDIR/disable" ] && [ ! -e "$MODDIR/remove" ]; do
     kernel_matches || { echo 'Driver identity changed; no automatic reload'; exit 6; }
     if ! same_boot "$STATE/server-boot" ||
-       ! pid_is "$(cat "$STATE/server.pid" 2>/dev/null || true)" '/system_ext/bin/mosey_server'; then
+       ! pid_is "$(cat "$STATE/server.pid" 2>/dev/null || true)" 'mosey_server'; then
         echo 'Native server lost; explicit recovery required'; exit 6
     fi
     printf '%s %s\n' "$(boot_id)" "$$" > "$STATE/supervisor-ready"

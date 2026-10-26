@@ -15,7 +15,15 @@ def main():
     if not args.sdk:
         parser.error('Set --sdk or ANDROID_HOME')
     api = args.sdk / 'platforms/android-36/android.jar'
+    if not api.is_file():
+        available_apis = sorted((args.sdk / 'platforms').glob('android-*/android.jar'), reverse=True)
+        if available_apis:
+            api = available_apis[0]
     d8 = args.sdk / 'build-tools/36.0.0/d8'
+    if not d8.is_file():
+        available_d8 = sorted((args.sdk / 'build-tools').glob('*/d8'), reverse=True)
+        if available_d8:
+            d8 = available_d8[0]
     out = ROOT / 'build/lsposed'
     classes, dex = out / 'classes', out / 'dex'
     classes.mkdir(parents=True, exist_ok=True)

@@ -6,6 +6,7 @@ MODE=${2:-archive}
 case "$MODE" in archive|installed) ;; *) echo 'Invalid verification mode'; exit 2;; esac
 while read -r expected rel; do
     [ -n "$expected" ] || continue
+    [ "$rel" != "SHA256SUMS" ] || continue
     path="$BASE/$rel"
     case "$rel" in
         system/system_ext/*|system/product/*)

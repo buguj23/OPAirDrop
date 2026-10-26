@@ -1,5 +1,5 @@
 #!/system/bin/sh
-ui_print "- OPAirDrop v$(sed -n 's/^version=//p' "$MODPATH/module.prop")：为 Oplus sun 平台设备开启 AirDrop"
+ui_print "- OPAirDrop v$(sed -n 's/^version=//p' "$MODPATH/module.prop")：为 Oplus / Realme 设备开启 AirDrop"
 [ "$(id -u)" = 0 ] || abort 'Root required'
 sh "$MODPATH/bin/verify.sh" "$MODPATH" >/dev/null || abort 'Payload integrity check failed'
 . "$MODPATH/bin/root-runtime.sh"
@@ -7,9 +7,11 @@ ui_print "- Root 环境：$(root_manager)；支持管理器内置挂载或外部
 ui_print '- 不按元模块名称或目录拦截；重启后检查系统文件的实际挂载结果'
 . "$MODPATH/bin/compatibility.sh"
 compat_result=$(compatibility_device 2>&1) || abort "Compatibility check failed: $compat_result"
-ui_print "- 兼容性检测通过：$(getprop ro.product.model) / Oplus / sun / $(uname -r)"
+ui_print "- 兼容性检测通过：$(getprop ro.product.model) / $(getprop ro.product.brand) / $(getprop ro.board.platform) / $(uname -r)"
 # Replacement must not merge obsolete split APKs from the earlier module.
-REPLACE="/system/system_ext/priv-app/MoseyApp"
+if [ -d "$MODPATH/system/system_ext/priv-app/MoseyApp" ]; then
+    REPLACE="/system/system_ext/priv-app/MoseyApp"
+fi
 root_write_policy "$MODPATH" || abort 'Root SELinux policy configuration failed'
 for item in "$MODPATH"/*;do
     [ "$item" != "$MODPATH/webroot" ] || continue
@@ -17,7 +19,8 @@ for item in "$MODPATH"/*;do
     else set_perm "$item" 0 0 0644;fi
 done
 for f in "$MODPATH"/bin/*.sh "$MODPATH/service.sh" "$MODPATH/post-fs-data.sh" "$MODPATH/uninstall.sh";do set_perm "$f" 0 0 0755;done
-set_perm "$MODPATH/system/system_ext/bin/mosey_server" 0 0 0755
+[ ! -f "$MODPATH/payload/native/mosey_server" ] || set_perm "$MODPATH/payload/native/mosey_server" 0 0 0755
+[ ! -f "$MODPATH/system/system_ext/bin/mosey_server" ] || set_perm "$MODPATH/system/system_ext/bin/mosey_server" 0 0 0755
 ui_print '- 配置内置 Unlock CN GMS v3.8'
 gms_result=$(sh "$MODPATH/bin/setup-gms.sh" "$MODPATH" 2>&1) || abort "GMS 配置生成失败：$gms_result"
 printf '%s\n' "$gms_result" | while IFS= read -r line; do ui_print "- $line"; done
@@ -31,7 +34,13 @@ if [ -s "$MODPATH/gms-unlock/mounts.list" ]; then
 fi
 mkdir -p /data/adb/opairshare
 rm -f /data/adb/opairshare/coex-off /data/adb/opairshare/coex-same149-only
-if [ ! -e /data/adb/opairshare/autostart-off ];then touch /data/adb/opairshare/autostart;fi
+if [ -f "$MODPATH/payload/native/libmosey_daemon_ffi.so" ]; then
+    cp "$MODPATH/payload/native/libmosey_daemon_ffi.so" /data/adb/opairshare/lib_mosey.so
+    chmod 755 /data/adb/opairshare/lib_mosey.so
+fi
+if [ "$(getprop ro.board.platform)" != "kalama" ] && [ ! -e /data/adb/opairshare/autostart-off ]; then
+    touch /data/adb/opairshare/autostart
+fi
 # Preserve explicit compatibility profiles. Otherwise select the fast profile.
 if [ ! -e /data/adb/opairshare/turbo-off ] && [ ! -e /data/adb/opairshare/turbo-vht ] && [ ! -e /data/adb/opairshare/turbo-on ]; then
     touch /data/adb/opairshare/turbo-fast

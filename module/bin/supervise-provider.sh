@@ -17,7 +17,7 @@ failures=0
 while same_boot "$STATE/stack-boot" && [ ! -e "$STATE/disabled" ] &&
       [ ! -e "$MODDIR/disable" ] && [ ! -e "$MODDIR/remove" ]; do
     if ! same_boot "$STATE/server-boot" ||
-       ! pid_is "$(cat "$STATE/server.pid" 2>/dev/null || true)" '/system_ext/bin/mosey_server'; then
+       ! pid_is "$(cat "$STATE/server.pid" 2>/dev/null || true)" 'mosey_server'; then
         echo 'Native server lost; leaving driver unchanged, explicit start required'
         exit 6
     fi
