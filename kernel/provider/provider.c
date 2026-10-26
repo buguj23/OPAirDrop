@@ -89,32 +89,35 @@ EXPORT_SYMBOL(cnss_set_vendor_wonder_priv_data);
 
 static int __init provider_init(void)
 {
-	int ret1 = 0, ret2 = 0;
+	struct platform_device_info wonder_info = {
+		.name = PROVIDER_NAME_WONDER,
+		.id = PLATFORM_DEVID_NONE,
+	};
+	struct platform_device_info cnss_info = {
+		.name = PROVIDER_NAME_CNSS,
+		.id = PLATFORM_DEVID_NONE,
+	};
 
-	provider_wonder = platform_device_alloc(PROVIDER_NAME_WONDER, PLATFORM_DEVID_NONE);
-	if (provider_wonder) {
-		ret1 = platform_device_add(provider_wonder);
-		if (ret1) {
-			platform_device_put(provider_wonder);
-			provider_wonder = NULL;
-		} else {
-			pr_info("opairshare_wonder_provider: created %s\n", PROVIDER_NAME_WONDER);
-		}
+	provider_wonder = platform_device_register_full(&wonder_info);
+	if (IS_ERR(provider_wonder)) {
+		pr_warn("opairshare_wonder_provider: failed to register %s (%ld)\n",
+			PROVIDER_NAME_WONDER, PTR_ERR(provider_wonder));
+		provider_wonder = NULL;
+	} else {
+		pr_info("opairshare_wonder_provider: created %s\n", PROVIDER_NAME_WONDER);
 	}
 
-	provider_cnss = platform_device_alloc(PROVIDER_NAME_CNSS, PLATFORM_DEVID_NONE);
-	if (provider_cnss) {
-		ret2 = platform_device_add(provider_cnss);
-		if (ret2) {
-			platform_device_put(provider_cnss);
-			provider_cnss = NULL;
-		} else {
-			pr_info("opairshare_wonder_provider: created %s\n", PROVIDER_NAME_CNSS);
-		}
+	provider_cnss = platform_device_register_full(&cnss_info);
+	if (IS_ERR(provider_cnss)) {
+		pr_warn("opairshare_wonder_provider: failed to register %s (%ld)\n",
+			PROVIDER_NAME_CNSS, PTR_ERR(provider_cnss));
+		provider_cnss = NULL;
+	} else {
+		pr_info("opairshare_wonder_provider: created %s\n", PROVIDER_NAME_CNSS);
 	}
 
 	if (!provider_wonder && !provider_cnss)
-		return ret1 ? ret1 : ret2;
+		return -ENODEV;
 
 	pr_info("opairshare_wonder_provider: bridge ready; stock CNSS untouched\n");
 	return 0;
