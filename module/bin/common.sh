@@ -7,6 +7,14 @@ boot_id() { cat /proc/sys/kernel/random/boot_id; }
 loaded() { grep -q "^$1 " /proc/modules; }
 same_boot() { [ -r "$1" ] && [ "$(cat "$1")" = "$(boot_id)" ]; }
 module_note() { od -An -tx1 "/sys/module/$1/notes/.note.gnu.build-id" 2>/dev/null | tr -d ' \n'; }
+note_matches() {
+    actual=$1; expected=$2
+    [ -n "$expected" ] || return 1
+    [ "$actual" = "$expected" ] && return 0
+    act_trim=${actual#040000001400000003000000474e5500}
+    exp_trim=${expected#040000001400000003000000474e5500}
+    [ "$act_trim" = "$exp_trim" ]
+}
 pid_live() {
     case "$1" in ''|*[!0-9]*) return 1;; esac
     [ -r "/proc/$1/stat" ] || return 1
@@ -122,10 +130,10 @@ kernel_matches() {
     [ "$(cat "$p/passthru_sta_coexist" 2>/dev/null)" = 3 ] &&
     [ "$(cat "$p/passthru_sta_regular_rx" 2>/dev/null)" = Y ] &&
     [ "$(cat "$p/passthru_sta_action_rx" 2>/dev/null)" = Y ] &&
-    [ -n "$expected_note" ] && [ "$(module_note "$mod")" = "$expected_note" ] &&
-    [ "$(module_note mac80211)" = "$NOTE_mac80211" ] &&
-    [ "$(module_note wonder)" = "$NOTE_wonder" ] &&
-    { [ -z "$NOTE_opairshare_wonder_provider" ] || [ "$NOTE_opairshare_wonder_provider" = NOT_REQUIRED ] || [ "$(module_note opairshare_wonder_provider)" = "$NOTE_opairshare_wonder_provider" ]; } &&
+    [ -n "$expected_note" ] && note_matches "$(module_note "$mod")" "$expected_note" &&
+    note_matches "$(module_note mac80211)" "$NOTE_mac80211" &&
+    note_matches "$(module_note wonder)" "$NOTE_wonder" &&
+    { [ -z "$NOTE_opairshare_wonder_provider" ] || [ "$NOTE_opairshare_wonder_provider" = NOT_REQUIRED ] || note_matches "$(module_note opairshare_wonder_provider)" "$NOTE_opairshare_wonder_provider"; } &&
     [ "$(cat "$p/passthru_awdl_wmi_raw" 2>/dev/null)" = Y ]
 }
 turbo_module_args() {

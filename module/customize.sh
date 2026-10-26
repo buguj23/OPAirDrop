@@ -38,7 +38,7 @@ if [ -f "$MODPATH/payload/native/libmosey_daemon_ffi.so" ]; then
     cp "$MODPATH/payload/native/libmosey_daemon_ffi.so" /data/adb/opairshare/lib_mosey.so
     chmod 755 /data/adb/opairshare/lib_mosey.so
 fi
-if [ "$(getprop ro.board.platform)" != "kalama" ] && [ ! -e /data/adb/opairshare/autostart-off ]; then
+if [ ! -e /data/adb/opairshare/autostart-off ]; then
     touch /data/adb/opairshare/autostart
 fi
 # Preserve explicit compatibility profiles. Otherwise select the fast profile.

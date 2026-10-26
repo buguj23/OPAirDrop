@@ -162,8 +162,8 @@ stop_native() {
     rm -f "$STATE/server.pid" "$STATE/server-boot"
 }
 restore_state_allowed() {
-    if loaded wonder; then [ "$(module_note wonder)" = "$NOTE_wonder" ] || return 3; fi
-    if loaded opairshare_wonder_provider; then [ "$(module_note opairshare_wonder_provider)" = "$NOTE_opairshare_wonder_provider" ] || return 3; fi
+    if loaded wonder; then note_matches "$(module_note wonder)" "$NOTE_wonder" || return 3; fi
+    if loaded opairshare_wonder_provider; then [ -z "$NOTE_opairshare_wonder_provider" ] || [ "$NOTE_opairshare_wonder_provider" = NOT_REQUIRED ] || note_matches "$(module_note opairshare_wonder_provider)" "$NOTE_opairshare_wonder_provider" || return 3; fi
     # Original WLAN/mac80211 builds vary across supported sun/kalama devices.
     # Keep ownership checks for our provider/Wonder; let insmod validate ABI.
 }
@@ -181,7 +181,7 @@ restore_owned() {
     if same_boot "$STATE/qca-swapped"; then
         note_var="NOTE_$WLAN_MOD"
         eval "expected_note=\${$note_var:-}"
-        if loaded "$WLAN_MOD" && [ -n "$expected_note" ] && [ "$(module_note "$WLAN_MOD")" = "$expected_note" ]; then
+        if loaded "$WLAN_MOD" && [ -n "$expected_note" ] && note_matches "$(module_note "$WLAN_MOD")" "$expected_note"; then
             rmmod "$WLAN_MOD" || return 11
         fi
         if loaded opairshare_wonder_provider; then rmmod opairshare_wonder_provider || return 12; fi
@@ -200,7 +200,7 @@ restore_owned() {
         rm -f "$STATE/provider-added"
     fi
     if same_boot "$STATE/mac-swapped"; then
-        if loaded mac80211 && [ "$(module_note mac80211)" = "$NOTE_mac80211" ]; then rmmod mac80211 || return 14; fi
+        if loaded mac80211 && note_matches "$(module_note mac80211)" "$NOTE_mac80211"; then rmmod mac80211 || return 14; fi
         if ! loaded mac80211; then
             stock_mac=""
             for p in /vendor_dlkm/lib/modules/mac80211.ko /vendor/lib/modules/mac80211.ko; do
