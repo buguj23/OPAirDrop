@@ -1,0 +1,22 @@
+{
+  "libopairshare_capability.so": {
+    "sha256": "b20a5a4b38674fa78ec57e85cbe357fa2baa1224a257859712db60c5fb1cc5c4",
+    "bytes": 7416
+  },
+  "libopairshare_config.so": {
+    "sha256": "483f6012b49bd1c69d9d15f8df2bb007e3baed1880e987fe39b263f80b578614",
+    "bytes": 11376
+  },
+  "libopairshare_channel.so": {
+    "sha256": "7d70a530aa95cb60e51c793e9ba6acd59f57d46ace1fc44ce26c3bdaeddb6890",
+    "bytes": 11216
+  },
+  "opairshare-socket-buffer": {
+    "sha256": "8963bc3eb34713f9d2925df95153cbc5c8fc3d922d8871bb4ffd3962c5558d0d",
+    "bytes": 11376
+  },
+  "session-wifi.jar": {
+    "sha256": "8540468aacbb608c7edf8be4be25044b03001102831495694a35fdf137c81411",
+    "bytes": 5126
+  }
+}
