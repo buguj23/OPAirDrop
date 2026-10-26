@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: GPL-2.0
+obj-m += opairshare_wonder_provider.o
+opairshare_wonder_provider-y := provider.o

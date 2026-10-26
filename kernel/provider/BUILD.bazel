@@ -1,30 +1,13 @@
-load("//build/kernel/kleaf:kernel.bzl", "ddk_module")
+load("//build/kernel/kleaf:kernel.bzl", "kernel_module")
 
 # Kalama (SM8550 / Realme GT5)
-ddk_module(
+kernel_module(
     name = "opairshare_wonder_provider",
-    srcs = ["provider.c", "wondertap.h"],
-    out = "opairshare_wonder_provider.ko",
-    kernel_build = "//msm-kernel:kalama_perf",
-    deps = ["//msm-kernel:all_headers"],
-)
-
-ddk_module(
-    name = "opairshare_route_b_probe",
-    srcs = ["probe.c", "wondertap.h"],
-    out = "opairshare_route_b_probe.ko",
-    kernel_build = "//msm-kernel:kalama_perf",
-    deps = [
-        "//msm-kernel:all_headers",
-        ":opairshare_wonder_provider",
+    srcs = [
+        "provider.c",
+        "wondertap.h",
+        "Kbuild",
     ],
-)
-
-# Sun (SM8750 / OnePlus 13)
-ddk_module(
-    name = "opairshare_wonder_provider_sun",
-    srcs = ["provider.c", "wondertap.h"],
-    out = "opairshare_wonder_provider.ko",
-    kernel_build = "//msm-kernel:sun_perf",
-    deps = ["//msm-kernel:all_headers"],
+    outs = ["opairshare_wonder_provider.ko"],
+    kernel_build = "//msm-kernel:kalama_perf",
 )
