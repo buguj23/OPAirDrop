@@ -7,10 +7,12 @@
 
 #include "wondertap.h"
 
-#define PROVIDER_NAME "qcom,cnss-vendor-wlan-wonder"
+#define PROVIDER_NAME_WONDER "vendor-wlan-wonder"
+#define PROVIDER_NAME_CNSS   "qcom,cnss-vendor-wlan-wonder"
 
 static DEFINE_MUTEX(provider_lock);
-static struct platform_device *provider;
+static struct platform_device *provider_wonder;
+static struct platform_device *provider_cnss;
 static const struct wondertap_priv *active_priv;
 static bool component_registered;
 
@@ -40,7 +42,7 @@ int cnss_set_vendor_wonder_priv_data(const void *priv_data)
 	int ret = 0;
 
 	mutex_lock(&provider_lock);
-	if (!provider) {
+	if (!provider_wonder && !provider_cnss) {
 		ret = -ENODEV;
 		goto out;
 	}
@@ -54,23 +56,32 @@ int cnss_set_vendor_wonder_priv_data(const void *priv_data)
 			ret = active_priv == priv ? 0 : -EBUSY;
 			goto out;
 		}
-		platform_set_drvdata(provider, (void *)priv);
-		ret = component_add(&provider->dev, &provider_ops);
-		if (ret) {
-			platform_set_drvdata(provider, NULL);
-			goto out;
+		if (provider_wonder) {
+			platform_set_drvdata(provider_wonder, (void *)priv);
+			component_add(&provider_wonder->dev, &provider_ops);
+		}
+		if (provider_cnss) {
+			platform_set_drvdata(provider_cnss, (void *)priv);
+			component_add(&provider_cnss->dev, &provider_ops);
 		}
 		component_registered = true;
 		active_priv = priv;
 	} else {
 		/* Unbind the master before clearing/freeing the caller's ops. */
-		if (component_registered)
-			component_del(&provider->dev, &provider_ops);
+		if (component_registered) {
+			if (provider_wonder)
+				component_del(&provider_wonder->dev, &provider_ops);
+			if (provider_cnss)
+				component_del(&provider_cnss->dev, &provider_ops);
+		}
 		component_registered = false;
 		active_priv = NULL;
-		platform_set_drvdata(provider, NULL);
+		if (provider_wonder)
+			platform_set_drvdata(provider_wonder, NULL);
+		if (provider_cnss)
+			platform_set_drvdata(provider_cnss, NULL);
 	}
-	out:
+out:
 	mutex_unlock(&provider_lock);
 	return ret;
 }
@@ -78,18 +89,34 @@ EXPORT_SYMBOL(cnss_set_vendor_wonder_priv_data);
 
 static int __init provider_init(void)
 {
-	int ret;
+	int ret1 = 0, ret2 = 0;
 
-	provider = platform_device_alloc(PROVIDER_NAME, PLATFORM_DEVID_NONE);
-	if (!provider)
-		return -ENOMEM;
-	ret = platform_device_add(provider);
-	if (ret) {
-		platform_device_put(provider);
-		provider = NULL;
-		return ret;
+	provider_wonder = platform_device_alloc(PROVIDER_NAME_WONDER, PLATFORM_DEVID_NONE);
+	if (provider_wonder) {
+		ret1 = platform_device_add(provider_wonder);
+		if (ret1) {
+			platform_device_put(provider_wonder);
+			provider_wonder = NULL;
+		} else {
+			pr_info("opairshare_wonder_provider: created %s\n", PROVIDER_NAME_WONDER);
+		}
 	}
-	pr_info("opairshare_wonder_provider: created %s; stock CNSS untouched\n", PROVIDER_NAME);
+
+	provider_cnss = platform_device_alloc(PROVIDER_NAME_CNSS, PLATFORM_DEVID_NONE);
+	if (provider_cnss) {
+		ret2 = platform_device_add(provider_cnss);
+		if (ret2) {
+			platform_device_put(provider_cnss);
+			provider_cnss = NULL;
+		} else {
+			pr_info("opairshare_wonder_provider: created %s\n", PROVIDER_NAME_CNSS);
+		}
+	}
+
+	if (!provider_wonder && !provider_cnss)
+		return ret1 ? ret1 : ret2;
+
+	pr_info("opairshare_wonder_provider: bridge ready; stock CNSS untouched\n");
 	return 0;
 }
 
@@ -97,8 +124,14 @@ static void __exit provider_exit(void)
 {
 	cnss_set_vendor_wonder_priv_data(NULL);
 	/* No platform driver remove callback: device destruction has one owner. */
-	platform_device_unregister(provider);
-	provider = NULL;
+	if (provider_wonder) {
+		platform_device_unregister(provider_wonder);
+		provider_wonder = NULL;
+	}
+	if (provider_cnss) {
+		platform_device_unregister(provider_cnss);
+		provider_cnss = NULL;
+	}
 }
 
 module_init(provider_init);

@@ -1,6 +1,6 @@
 load("//build/kernel/kleaf:kernel.bzl", "kernel_module")
 
-# Kalama (SM8550 / Realme GT5)
+# Kalama (SM8550 / Realme GT5) & Sun (SM8750)
 kernel_module(
     name = "opairshare_wonder_provider",
     srcs = [
@@ -9,5 +9,5 @@ kernel_module(
         "Kbuild",
     ],
     outs = ["opairshare_wonder_provider.ko"],
-    kernel_build = "//msm-kernel:kalama_perf",
+    kernel_build = "//msm-kernel:kernel_aarch64",
 )
