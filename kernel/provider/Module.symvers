@@ -181,7 +181,6 @@
 0x1e0cf64a	cnss_self_recovery	vmlinux	EXPORT_SYMBOL	
 0x27182c50	cnss_set_fw_log_mode	vmlinux	EXPORT_SYMBOL	
 0xe1ecf2a4	cnss_set_pcie_gen_speed	vmlinux	EXPORT_SYMBOL	
-0xd7585ffc	cnss_set_vendor_wonder_priv_data	vmlinux	EXPORT_SYMBOL	
 0x5b4e465a	cnss_set_wfc_mode	vmlinux	EXPORT_SYMBOL	
 0x321547e8	cnss_smmu_get_domain	vmlinux	EXPORT_SYMBOL	
 0x10743ded	cnss_smmu_map	vmlinux	EXPORT_SYMBOL	
